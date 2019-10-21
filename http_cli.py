@@ -1,214 +1,145 @@
-from typing import Dict
-import requests
 import argparse
-
-parser = argparse.ArgumentParser(description='Interface to access an API.')
-
-parser.add_argument('--getall', dest='', action='',
-                    const=sum, default=max,
-                    help='GET all data from API')
-
-parser.add_argument('--post', dest='accumulate', action='store_const',
-                    const=sum, default=max,
-                    help='POST to API')
-
-parser.add_argument('--put', dest='accumulate', action='store_const',
-                    const=sum, default=max,
-                    help='PUT to API')
-
-args = parser.parse_args()
-print(args.accumulate(args.integers))
+from uri_objects import Uri
+from pprint import pprint
 
 
-class Uri:
+def parse_input():
     """
-    Uri class
+    Uses argparse to gather args from the original command line input.
     """
 
-    __create_key = object()
+    parser = argparse.ArgumentParser(description='Interface to access an API.')
 
-    @classmethod
-    def new(cls):
-        """
-        Creates a new Uri object, using the BuildUri class (__create_key) used to prevent creation via init.
-        """
-        return BuildUri(Uri.__create_key)
+    parser.add_argument('action',
+                        help='Action type to access the API',
+                        choices=['GET', 'PUT', 'POST']
+                        )
 
-    def __init__(self, create_key, scheme: str, host: str, port: str, path: str, param: dict, frags: dict):
+    parser.add_argument('--item',
+                        metavar="KEY=VALUE",
+                        nargs='+',
+                        help="Set a number of key-value pairs, which will comprise the values to put/post"
+                        )
 
-        assert (create_key == Uri.__create_key), \
-            "URI objects must be created using BuildURI, please use the .new() method"
+    parser.add_argument('--s', '--scheme',
+                        help='Set the scheme (http or https)',
+                        default="https"
+                        )
 
-        self._scheme = scheme
-        self._host = host
-        self._port = port
-        self._path = path
-        self._param = param
-        self._frags = frags
+    parser.add_argument('--h', '--host',
+                        help="Set the host (main domain)",
+                        required=True
+                        )
 
-    def format_params(self):
-        """
-        Formats the dictionary created in BuildUri into a string for the Uri object.
-        """
+    parser.add_argument('--port',
+                        help='Set the port (for example 8080)'
+                        )
 
-        paramstr = ''
-        paramstr = '&'.join([f"{key}={value}" for key, value in self._param.items()])
-        if len(paramstr) > 0:
-            paramstr = '?' + paramstr
+    parser.add_argument('--p', '--path',
+                        help='Set the path (for example /search)'
+                        )
 
-        return paramstr
+    parser.add_argument('--param',
+                        metavar="KEY=VALUE",
+                        nargs='+',
+                        help='Set the parameters as key value pairs'
+                        )
 
-    def format_frags(self):
-        """
-        Formats the dictionary created in BuildUri into a string for the Uri object.
-        """
+    parser.add_argument('--frags',
+                        metavar="KEY=VALUE",
+                        nargs='+',
+                        help='set the fragments as key value pairs'
+                        )
 
-        fragstr = ''
-        fragstr = '&'.join([f"{key}={value}" for key, value in self._frags.items()])
-        if len(fragstr) > 0:
-            fragstr = '#' + fragstr
+    parser.add_argument('--id',
+                        metavar="KEY=VALUE",
+                        nargs='+',
+                        help='set the requested parameter for a GET request of a specific item'
+                        )
 
-        return fragstr
+    args = parser.parse_args()
 
-    def to_string(self):
-        """
-        Converts the Uri object into a URL string
-        """
-
-        paramstring = self.format_params()
-        fragmentstring = self.format_frags()
-
-        return f'{self._scheme}://{self._host}:{self._port or ""}/{self._path or ""}{paramstring}{fragmentstring}'
-
-    def get(self):
-
-        source = self.to_string()
-        return requests.get(source).json()
+    return args
 
 
-class BuildUri:
+def parse_key_values(itemstr):
+    """
+    Used in parse_vars to parse each input for a key value pair, by items separated by '='
+    """
+    items = itemstr.split('=')
+    key = items[0].strip()
 
-    def __init__(
-            self,
-            create_key,
-            scheme: str = None,
-            host: str = None,
-            port: str= None,
-            path: str = None,
-            param: dict = {},
-            frags: dict = {}
-    ):
+    if len(items) > 1:
+        value = '='.join(items[1:])
+        return key, value
 
-        self._create_key = create_key
-        self.scheme = scheme
-        self.host = host
-        self.port = port
-        self.path = path
-        self.param = param
-        self.frags = frags
 
-    def with_scheme(self, scheme):
-        """
-        Insert a scheme
-        """
-        return BuildUri(
-            create_key=self._create_key,
-            scheme=scheme,
-            host=self.host,
-            port=self.port,
-            path=self.path,
-            param=self.param,
-            frags=self.frags
-        )
+def parse_vars(items):
+    """
+    Parse a series of key-value pairs and return a dictionary
+    """
+    dictionary = {}
 
-    def with_host(self, host):
-        """
-        Insert a host
-        """
-        return BuildUri(
-            create_key=self._create_key,
-            scheme=self.scheme,
-            host=host,
-            port=self.port,
-            path=self.path,
-            param=self.param,
-            frags=self.frags
-        )
+    if items:
+        for i in items:
+            key, value = parse_key_values(i)
+            dictionary[key] = value
+    return dictionary
 
-    def with_port(self, port):
-        """
-        Insert a port
-        """
-        return BuildUri(
-            create_key=self._create_key,
-            scheme=self.scheme,
-            host=self.host,
-            port=port,
-            path=self.path,
-            param=self.param,
-            frags=self.frags
-        )
 
-    def with_path(self, path):
-        """
-        Insert a path
-        """
-        return BuildUri(
-            create_key=self._create_key,
-            scheme=self.scheme,
-            host=self.host,
-            port=self.port,
-            path=path,
-            param=self.param,
-            frags=self.frags
-        )
+def contruct_uri(args):
+    """
+    Constructs the URI object from the parsed inputs.
+    TODO: The get specific returns all, not a specific item, test post and put.
+    """
 
-    def with_param(self, key, value):
-        """
-        Insert a parameter
-        """
+    useruri = Uri.new() \
+        .with_scheme(args.s) \
+        .with_host(args.h) \
+        .with_path(args.p) \
+        .with_port(args.port)
 
-        new_params = self.param.copy()
-        new_params[key] = value
+    if args.param is not None:
+        paramdic = parse_vars(args.param)
 
-        return BuildUri(
-            create_key=self._create_key,
-            scheme=self.scheme,
-            host=self.host,
-            port=self.port,
-            path=self.path,
-            param=new_params,
-            frags=self.frags
-        )
+        for key, value in paramdic:
+            useruri.with_param(key, value)
 
-    def with_frags(self, key, value):
-        """
-        Insert a fragment
-        """
+    if args.frags is not None:
+        fragdic = parse_vars(args.frag)
 
-        new_frags = self.frags.copy()
-        new_frags[key] = value
+        for key, value in fragdic:
+            useruri.with_frags(key, value)
 
-        return BuildUri(
-            create_key=self._create_key,
-            scheme=self.scheme,
-            host=self.host,
-            port=self.port,
-            path=self.path,
-            param=self.param,
-            frags=new_frags
-        )
+    useruri = useruri.to_uri()
 
-    def to_uri(self):
-        """
-        Create a Uri object from the builder
-        """
-        return Uri(
-            create_key=self._create_key,
-            scheme=self.scheme,
-            host=self.host,
-            port=self.port,
-            path=self.path,
-            param=self.param,
-            frags=self.frags
-        )
+    return useruri
+
+
+def evaluate_action(useruri, args):
+    """
+    Exectues the desired action on the constructed URI Object.
+    """
+
+    if args.action == 'GET' and args.id is not None:
+        getparam = parse_vars(args.id)
+        return useruri.get_specific(getparam)
+
+    elif args.action == 'GET' and args.id is None:
+        return useruri.get()
+
+    elif args.action == 'POST':
+        postitem = parse_vars(args.item)
+        return useruri.post(item_to_post=postitem)
+
+    elif args.action == 'PUT':
+        putitem = parse_vars(args.item)
+        return useruri.put(item_to_post=putitem)
+
+
+if __name__ == "__main__":
+
+    targs = parse_input()
+    tuseruri = contruct_uri(targs)
+    do = evaluate_action(tuseruri, targs)
+    pprint(do)
