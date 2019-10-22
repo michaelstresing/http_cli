@@ -23,16 +23,17 @@ def parse_input():
 
     parser.add_argument('--s', '--scheme',
                         help='Set the scheme (http or https)',
-                        default="https"
+                        default="http"
                         )
 
     parser.add_argument('--h', '--host',
                         help="Set the host (main domain)",
-                        required=True
+                        default="demo.codingnomads.co"
                         )
 
     parser.add_argument('--port',
-                        help='Set the port (for example 8080)'
+                        help='Set the port (for example 8080)',
+                        default='8080'
                         )
 
     parser.add_argument('--p', '--path',
@@ -52,8 +53,7 @@ def parse_input():
                         )
 
     parser.add_argument('--id',
-                        metavar="KEY=VALUE",
-                        nargs='+',
+                        type=int,
                         help='set the requested parameter for a GET request of a specific item'
                         )
 
@@ -90,14 +90,16 @@ def parse_vars(items):
 def contruct_uri(args):
     """
     Constructs the URI object from the parsed inputs.
-    TODO: The get specific returns all, not a specific item, test post and put.
     """
 
-    useruri = Uri.new() \
-        .with_scheme(args.s) \
-        .with_host(args.h) \
-        .with_path(args.p) \
-        .with_port(args.port)
+    useruri = Uri.new()\
+        .with_scheme(args.s)\
+        .with_host(args.h)\
+        .with_port(args.port)\
+        .with_path(args.p)\
+
+    if args.id is not None:
+        useruri.with_path(args.id)
 
     if args.param is not None:
         paramdic = parse_vars(args.param)
@@ -121,11 +123,7 @@ def evaluate_action(useruri, args):
     Exectues the desired action on the constructed URI Object.
     """
 
-    if args.action == 'GET' and args.id is not None:
-        getparam = parse_vars(args.id)
-        return useruri.get_specific(getparam)
-
-    elif args.action == 'GET' and args.id is None:
+    if args.action == 'GET':
         return useruri.get()
 
     elif args.action == 'POST':

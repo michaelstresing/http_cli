@@ -84,11 +84,6 @@ class Uri:
         source = self.to_string()
         return requests.get(source).json()
 
-    def get_specific(self, specification):
-
-        source = self.to_string()
-        return requests.get(source, json=specification).json()
-
     def post(self, item_to_post):
         """
         Takes an item and posts it to the URI object.
